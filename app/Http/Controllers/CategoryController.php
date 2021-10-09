@@ -50,7 +50,7 @@ class CategoryController extends Controller
         $validation = Validator::make(Request::all(),$this->rules);
 
         if ($validation->fails()){
-            return response()->json(['message'=>$validation->errors()],500);
+            return response()->json(['Errors: '=>$validation->errors()],500);
         }else {
             $category = Category::create($request->all());
             return response()->json($category,201);
@@ -123,7 +123,7 @@ class CategoryController extends Controller
         if (is_null($category)){
             return response()->json(['message'=>'Not found'], 404);
         }
-        $products = Product::where('category_id',$category->id)->get();
+        $products = $category->products()->get();
         if(sizeof($products) != 0) return response()->json(['message'=>'Category isn`t empty'], 500);
         $category->delete();
         return response()->json(null, 204);

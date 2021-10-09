@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Category;
 use App\Models\Product;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Validator;
 
 class CategoryProductController extends Controller
 {
@@ -13,12 +14,18 @@ class CategoryProductController extends Controller
      *
      * @return \Illuminate\Http\Response
      */
+
+    protected $rules = [
+        'name'=> 'required|min:3|max:128',
+        'code' => 'required|min:3|max:128',
+        'description'=>'required|min:3|max:256',
+        'products'=>'required|integer'
+    ];
     public function index($id)
     {
         $category = Category::find($id);
         if (is_null($category)) return response()->json(['message'=> 'Not found'],404);
-        $products = Product::where('category_id',$category->id)->get();
-        return response()->json([$category->name, $products],201);
+        return response()->json([$category->name, $category->products()->get()],201);
     }
 
     /**
@@ -40,6 +47,15 @@ class CategoryProductController extends Controller
     public function store(Request $request)
     {
         //
+        $validation = Validator::make(Request::all(),$this->rules);
+        if ($validation->fails()){
+            return response()->json(['Errors: '=>$validation->errors()],500);
+        } else{
+            $category = Category::create(['id'=>$request->input('id'), 'name'=>$request->input('name'), 'code'=>$request->input('code'), 'description'=>$request->input('description')]);
+            $products = explode(',',$request->input('categories'));
+            $category->products()->attach($products);
+            return response()->json(['Category: '=>$category, 'Products in category: '=> $category->products()->get()], 201);
+        }
     }
 
     /**
@@ -74,6 +90,20 @@ class CategoryProductController extends Controller
     public function update(Request $request, $id)
     {
         //
+        $validation = Validator::make(Request::all(),$this->rules);
+        $category = Category::findOrFail($id);
+        if (is_null($category)){
+            return response()->json(['message'=>'Not found'], 404);
+        }
+        if ($validation->fails()){
+            return response()->json(['Errors: '=>$validation->errors()],500);
+        } else{
+            $category->products()->detach();
+            $products = explode(',',$request->input('products'));
+            $category->products()->attach($products);
+            $category->update($request->all());
+            return response()->json(['Category: '=>$category, 'Products in category: '=>$category->products()->get()], 201);
+        }
     }
 
     /**
@@ -89,10 +119,7 @@ class CategoryProductController extends Controller
         if (is_null($category)){
             return response()->json(['message'=>'Not found'], 404);
         }
-        $products = Product::where('category_id',$category->id)->get();
-        foreach ($products as $product){
-            $product->category_id = 0;
-        }
+        $category->products()->detach();
         $category->delete();
 
         return response()->json(null, 204);
